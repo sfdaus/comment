@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"prakarsa-app/domain"
+	"prakarsa-app/entity"
 	"prakarsa-app/transport/request"
 	"prakarsa-app/transport/response"
 	"prakarsa-app/utils"
@@ -22,7 +22,7 @@ func NewPgsqlCommentRepository(db *sql.DB) *pgsqlCommentRepository {
 	}
 }
 
-func (r *pgsqlCommentRepository) Create(ctx context.Context, comment *domain.Comment) (err error) {
+func (r *pgsqlCommentRepository) Create(ctx context.Context, comment *entity.Comment) (err error) {
 	query := `INSERT INTO comments (id, thread_id, user_id, content, is_active, created_by, created_at, updated_at) 
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 	if _, err = r.db.ExecContext(ctx, query, comment.ID, comment.ThreadID, comment.UserID, comment.Content, comment.IsActive,
@@ -33,7 +33,7 @@ func (r *pgsqlCommentRepository) Create(ctx context.Context, comment *domain.Com
 	return
 }
 
-func (r *pgsqlCommentRepository) Update(ctx context.Context, comment *domain.Comment) (err error) {
+func (r *pgsqlCommentRepository) Update(ctx context.Context, comment *entity.Comment) (err error) {
 	// Build dynamic SET clauses from Comment struct
 	sets := []string{}
 	args := []interface{}{}
@@ -72,7 +72,7 @@ func (r *pgsqlCommentRepository) Update(ctx context.Context, comment *domain.Com
 	return
 }
 
-func (r *pgsqlCommentRepository) Delete(ctx context.Context, comment *domain.Comment) (rowsAffected int64, err error) {
+func (r *pgsqlCommentRepository) Delete(ctx context.Context, comment *entity.Comment) (rowsAffected int64, err error) {
 	query := "DELETE FROM comments WHERE id = $1"
 	res, err := r.db.ExecContext(ctx, query, comment.ID)
 	if err != nil {
@@ -93,14 +93,14 @@ func (r *pgsqlCommentRepository) GetList(ctx context.Context, request *request.G
 	args := []interface{}{}
 	idx := 1
 
-	if request.Name != "" {
-		wheres = append(wheres, fmt.Sprintf("name ILIKE $%d", idx))
-		args = append(args, "%"+request.Name+"%")
+	if request.ThreadID != "" {
+		wheres = append(wheres, fmt.Sprintf("thread_id = $%d", idx))
+		args = append(args, request.ThreadID)
 		idx++
 	}
 
 	if request.IsActive != nil {
-		wheres = append(wheres, fmt.Sprintf("is_active = $%d", idx))
+		wheres = append(wheres, fmt.Sprintf("c.is_active = $%d", idx))
 		args = append(args, request.IsActive)
 		idx++
 	}
@@ -110,16 +110,20 @@ func (r *pgsqlCommentRepository) GetList(ctx context.Context, request *request.G
 		whereSQL = "WHERE " + strings.Join(wheres, " AND ")
 	}
 
-	// --- 2. Hitung totalCount dulu (tanpa LIMIT/OFFSET) ---
-	countQuery := fmt.Sprintf(
-		"SELECT COUNT(*) FROM comments %s",
-		whereSQL,
-	)
+	// 2) Hitung total data (tanpa LIMIT/OFFSET)
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*) 
+		FROM comments c
+		JOIN profiles p ON p.user_id = c.user_id
+		LEFT JOIN institutions i ON i.id = p.institution_id
+		%s
+	`, whereSQL)
+
 	if err = r.db.QueryRowContext(ctx, countQuery, args...).Scan(&meta.TotalData); err != nil {
 		return nil, meta, err
 	}
 
-	// 2. Calculate LIMIT & OFFSET
+	// 3) Pagination setup
 	perPage := request.PerPage
 	if perPage <= 0 {
 		perPage = 10
@@ -129,7 +133,6 @@ func (r *pgsqlCommentRepository) GetList(ctx context.Context, request *request.G
 		page = 1
 	}
 
-	// total pages = ceil(total / perPage)
 	meta.Page = page
 	meta.PerPage = perPage
 	meta.TotalPages = (meta.TotalData + perPage - 1) / perPage
@@ -140,47 +143,93 @@ func (r *pgsqlCommentRepository) GetList(ctx context.Context, request *request.G
 	args = append(args, perPage, offset)
 	limitPos, offsetPos := idx, idx+1
 
-	// 3. Final query
+	// ---------- 4) Query data ----------
+	// NOTE: kolom institutions.alias diasumsikan ada (sesuai struct lo).
+	// Jika di DB belum ada, hapus kolom & mapping alias di SELECT/Scan.
 	query := fmt.Sprintf(`
-        SELECT
-            id, name, description,
-            is_active
-        FROM Comments
-        %s
-        ORDER BY created_at DESC
-        LIMIT $%d OFFSET $%d
-    `, whereSQL, limitPos, offsetPos)
+		SELECT
+			-- comment
+			c.id, c.thread_id, c.user_id, c.content,
+			c.is_active, c.created_at, c.updated_at,
+			-- profile
+			p.name, p.name_alias, p.avatar,
+			-- institution
+			i.name, i.alias, i.type
+		FROM comments c
+		JOIN profiles p ON p.user_id = c.user_id
+		LEFT JOIN institutions i ON i.id = p.institution_id
+		%s
+		ORDER BY c.created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, whereSQL, limitPos, offsetPos)
 
-	// 4. Execute
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, meta, err
 	}
 	defer rows.Close()
 
-	// 5. Scan results
+	// ---------- 5) Scan ----------
 	for rows.Next() {
-		var item response.GetListCommentRes
+		var (
+			// comments
+			cID, cThreadID, cUserID string
+			cContent                string
+			cIsActive               sql.NullBool
+			cCreatedAt, cUpdatedAt  int64
+
+			// profile
+			pName           string
+			pAlias, pAvatar sql.NullString
+
+			// institution
+			iName, iAlias, iType sql.NullString
+		)
 
 		if err := rows.Scan(
-			&item.ID,
-			&item.Name,
-			&item.Description,
-			&item.IsActive,
+			&cID, &cThreadID, &cUserID, &cContent,
+			&cIsActive, &cCreatedAt, &cUpdatedAt,
+			&pName, &pAlias, &pAvatar,
+			&iName, &iAlias, &iType,
 		); err != nil {
 			return nil, meta, err
 		}
 
+		var isActivePtr *bool
+		if cIsActive.Valid {
+			v := cIsActive.Bool
+			isActivePtr = &v
+		}
+
+		item := response.GetListCommentRes{
+			ID:        cID,
+			ThreadID:  cThreadID,
+			Content:   cContent,
+			IsActive:  *isActivePtr,
+			CreatedAt: cCreatedAt,
+			UpdatedAt: cUpdatedAt,
+			Profile: entity.Profile{
+				Name:      pName,
+				NameAlias: pAlias.String,
+				Avatar:    pAvatar.String,
+			},
+			Institution: entity.Institution{
+				Name:  iName.String,
+				Alias: iAlias.String,
+				Type:  iType.String,
+			},
+		}
+
 		res = append(res, item)
 	}
-	if errRow := rows.Err(); errRow != nil {
-		return nil, meta, errRow
+	if err := rows.Err(); err != nil {
+		return nil, meta, err
 	}
 
 	return
 }
 
-func (r *pgsqlCommentRepository) GetDetail(ctx context.Context, request *request.GetDetailCommentReq) (res domain.Comment, err error) {
+func (r *pgsqlCommentRepository) GetDetail(ctx context.Context, request *request.GetDetailCommentReq) (res entity.Comment, err error) {
 
 	const query = `
 					SELECT
@@ -201,7 +250,7 @@ func (r *pgsqlCommentRepository) GetDetail(ctx context.Context, request *request
 	// 1. QueryRowContext untuk ambil satu baris
 	row := r.db.QueryRowContext(ctx, query, request.ID)
 
-	// 2. Scan kolom ke field di domain.Comment
+	// 2. Scan kolom ke field di entity.Comment
 	// since created_at is NOT NULL int8:
 	var createdAt int64
 	// updated_at/deleted_at can be NULL, so use NullInt64:

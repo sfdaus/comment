@@ -45,7 +45,7 @@ func (request DeleteCommentReq) Validate() error {
 
 // GetList request body
 type GetListCommentReq struct {
-	Name     string `query:"name"`
+	ThreadID string `query:"thread_id"`
 	IsActive *bool  `query:"is_active"`
 	PerPage  int64  `query:"per_page"`
 	Page     int64  `query:"page"`
@@ -54,6 +54,7 @@ type GetListCommentReq struct {
 func (request GetListCommentReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
+		validation.Field(&request.ThreadID, validation.Required),
 	)
 }
 

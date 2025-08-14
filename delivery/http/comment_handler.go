@@ -116,7 +116,7 @@ func (h *CommentHandler) GetList(c echo.Context) error {
 		return c.JSON(utils.ParseHttpError(err))
 	} else {
 		return c.JSON(http.StatusOK, map[string]interface{}{
-			"message": "Comment successfully retrieved",
+			"message": "Comments successfully retrieved",
 			"data": map[string]interface{}{
 				"data": res,
 				"meta": meta,

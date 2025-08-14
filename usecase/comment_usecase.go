@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"prakarsa-app/entity"
 	"prakarsa-app/transport/response"
 	"time"
 
@@ -34,7 +35,7 @@ func (u *CommentUsecase) Create(c context.Context, request *request.CreateCommen
 	// Create Payload
 	CommentID := uuid.NewString()
 	t := true
-	CommentPayload := &domain.Comment{
+	CommentPayload := &entity.Comment{
 		ID:        CommentID,
 		ThreadID:  request.ThreadID,
 		UserID:    "TODO_user_id",
@@ -57,7 +58,7 @@ func (u *CommentUsecase) Update(c context.Context, request *request.UpdateCommen
 	defer cancel()
 
 	// Update Payload
-	commentPayload := &domain.Comment{
+	commentPayload := &entity.Comment{
 		ID:        request.ID,
 		UpdatedBy: "TODO_updated_by",
 		UpdatedAt: time.Now().Unix(),
@@ -74,7 +75,7 @@ func (u *CommentUsecase) Delete(c context.Context, request *request.DeleteCommen
 	ctx, cancel := context.WithTimeout(c, u.CtxTimeout)
 	defer cancel()
 
-	commentPayload := &domain.Comment{
+	commentPayload := &entity.Comment{
 		ID: request.ID,
 	}
 
@@ -86,11 +87,14 @@ func (u *CommentUsecase) GetList(c context.Context, request *request.GetListComm
 	ctx, cancel := context.WithTimeout(c, u.CtxTimeout)
 	defer cancel()
 
+	t := true
+	request.IsActive = &t
+
 	res, meta, err = u.CommentRepo.GetList(ctx, request)
 	return
 }
 
-func (u *CommentUsecase) GetDetail(c context.Context, request *request.GetDetailCommentReq) (res domain.Comment, err error) {
+func (u *CommentUsecase) GetDetail(c context.Context, request *request.GetDetailCommentReq) (res entity.Comment, err error) {
 	ctx, cancel := context.WithTimeout(c, u.CtxTimeout)
 	defer cancel()
 

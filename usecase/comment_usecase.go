@@ -94,7 +94,7 @@ func (u *CommentUsecase) GetList(c context.Context, request *request.GetListComm
 	return
 }
 
-func (u *CommentUsecase) GetDetail(c context.Context, request *request.GetDetailCommentReq) (res entity.Comment, err error) {
+func (u *CommentUsecase) GetDetail(c context.Context, request *request.GetDetailCommentReq) (res response.GetDetailCommentRes, err error) {
 	ctx, cancel := context.WithTimeout(c, u.CtxTimeout)
 	defer cancel()
 

@@ -7,7 +7,6 @@ import (
 	"prakarsa-app/entity"
 	"prakarsa-app/transport/request"
 	"prakarsa-app/transport/response"
-	"prakarsa-app/utils"
 	"strings"
 )
 
@@ -229,62 +228,79 @@ func (r *pgsqlCommentRepository) GetList(ctx context.Context, request *request.G
 	return
 }
 
-func (r *pgsqlCommentRepository) GetDetail(ctx context.Context, request *request.GetDetailCommentReq) (res entity.Comment, err error) {
+func (r *pgsqlCommentRepository) GetDetail(ctx context.Context, request *request.GetDetailCommentReq) (res response.GetDetailCommentRes, err error) {
 
 	const query = `
 					SELECT
-					  id,
-					  name,
-					  description,
-					  is_active,
-					  created_at,
-					  created_by,
-					  updated_at,
-					  updated_by,
-					  deleted_at
-					FROM comments
-					WHERE id = $1
+						-- comment
+						c.id, c.thread_id, c.user_id, c.content,
+						c.is_active, c.created_at, c.updated_at,
+						-- profile
+						p.name, p.name_alias, p.avatar,
+						-- institution
+						i.name, i.alias, i.type
+					FROM comments c
+					JOIN profiles p ON p.user_id = c.user_id
+					LEFT JOIN institutions i ON i.id = p.institution_id
+					WHERE c.id = $1
 					LIMIT 1
 					`
 
 	// 1. QueryRowContext untuk ambil satu baris
 	row := r.db.QueryRowContext(ctx, query, request.ID)
 
-	// 2. Scan kolom ke field di entity.Comment
-	// since created_at is NOT NULL int8:
-	var createdAt int64
-	// updated_at/deleted_at can be NULL, so use NullInt64:
-	var updatedAt, deletedAt sql.NullInt64
-	var updatedBy sql.NullString
+	// ---------- 5) Scan ----------
+	var (
+		// comments
+		cID, cThreadID, cUserID string
+		cContent                string
+		cIsActive               sql.NullBool
+		cCreatedAt, cUpdatedAt  int64
 
-	err = row.Scan(
-		&res.ID,
-		// &res.Name,
-		// &res.Description,
-		&res.IsActive,
-		&createdAt,
-		&res.CreatedBy,
-		&updatedAt,
-		&updatedBy,
-		&deletedAt,
+		// profile
+		pName           string
+		pAlias, pAvatar sql.NullString
+
+		// institution
+		iName, iAlias, iType sql.NullString
 	)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return res, utils.NewNotFoundError("comment not found")
-		}
+
+	if err := row.Scan(
+		&cID, &cThreadID, &cUserID, &cContent,
+		&cIsActive, &cCreatedAt, &cUpdatedAt,
+		&pName, &pAlias, &pAvatar,
+		&iName, &iAlias, &iType,
+	); err != nil {
 		return res, err
 	}
 
-	// assign into your domain fields
-	res.CreatedAt = createdAt
-	if updatedAt.Valid {
-		res.UpdatedAt = updatedAt.Int64
+	var isActivePtr *bool
+	if cIsActive.Valid {
+		v := cIsActive.Bool
+		isActivePtr = &v
 	}
-	if deletedAt.Valid {
-		res.DeletedAt = deletedAt.Int64
+
+	res = response.GetDetailCommentRes{
+		ID:        cID,
+		ThreadID:  cThreadID,
+		Content:   cContent,
+		IsActive:  *isActivePtr,
+		CreatedAt: cCreatedAt,
+		UpdatedAt: cUpdatedAt,
+		Profile: entity.Profile{
+			Name:      pName,
+			NameAlias: pAlias.String,
+			Avatar:    pAvatar.String,
+		},
+		Institution: entity.Institution{
+			Name:  iName.String,
+			Alias: iAlias.String,
+			Type:  iType.String,
+		},
 	}
-	if updatedBy.Valid {
-		res.UpdatedBy = updatedBy.String
+
+	if err := row.Err(); err != nil {
+		return res, err
 	}
 
 	return

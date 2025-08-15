@@ -211,11 +211,11 @@ func (r *pgsqlCommentRepository) GetList(ctx context.Context, request *request.G
 				Name:      pName,
 				NameAlias: pAlias.String,
 				Avatar:    pAvatar.String,
-			},
-			Institution: entity.Institution{
-				Name:  iName.String,
-				Alias: iAlias.String,
-				Type:  iType.String,
+				Institution: entity.Institution{
+					Name:  iName.String,
+					Alias: iAlias.String,
+					Type:  iType.String,
+				},
 			},
 		}
 
@@ -291,11 +291,11 @@ func (r *pgsqlCommentRepository) GetDetail(ctx context.Context, request *request
 			Name:      pName,
 			NameAlias: pAlias.String,
 			Avatar:    pAvatar.String,
-		},
-		Institution: entity.Institution{
-			Name:  iName.String,
-			Alias: iAlias.String,
-			Type:  iType.String,
+			Institution: entity.Institution{
+				Name:  iName.String,
+				Alias: iAlias.String,
+				Type:  iType.String,
+			},
 		},
 	}
 

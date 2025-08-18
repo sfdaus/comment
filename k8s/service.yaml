@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: comment
+  namespace: prakarsa
+  labels:
+    app: comment
+spec:
+  type: ClusterIP
+  selector:
+    app: comment
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080

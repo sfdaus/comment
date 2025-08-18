@@ -1,33 +1,52 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: comment-api
-  namespace: prakarsa
-  labels: { app: comment-api }
+  name: comment
+  labels: { app: comment }
 spec:
   replicas: 1
-  selector: { matchLabels: { app: comment-api } }
+  revisionHistoryLimit: 2
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0   # jaga zero-downtime
+      maxSurge: 1
+  selector:
+    matchLabels: { app: comment }
   template:
-    metadata: { labels: { app: comment-api } }
+    metadata:
+      labels: { app: comment }
     spec:
+      terminationGracePeriodSeconds: 10
+      imagePullSecrets:
+        - name: ghcr-login       # (lihat catatan di bawah)
       containers:
-        - name: comment-api
-          image: comment-api:latest  # image lokal yang kamu import ke k3s
-          imagePullPolicy: IfNotPresent
-          ports:
-            - containerPort: 8080
-          # probe TCP biar aman kalau belum ada /healthz
+        - name: comment
+          image: ghcr.io/sfdaus/comment:latest   # akan dioverride di deploy
+          imagePullPolicy: Always
+          ports: [ { containerPort: 8080 } ]
+          envFrom:
+            - secretRef: { name: comment-env }
+          startupProbe:
+            tcpSocket: { port: 8080 }
+            periodSeconds: 2
+            failureThreshold: 60   # ~2 menit “waktu boot” sebelum liveness aktif
+
           readinessProbe:
             tcpSocket: { port: 8080 }
             initialDelaySeconds: 5
-            periodSeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 12
+
           livenessProbe:
             tcpSocket: { port: 8080 }
-            initialDelaySeconds: 10
-            periodSeconds: 10
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 3
+
           resources:
-            requests: { cpu: "100m", memory: "128Mi" }
-            limits:   { cpu: "500m", memory: "256Mi" }
-          # (opsional) ENV dari Secret .env
-          envFrom:
-             - secretRef: { name: comment-api-env }
+            requests: { cpu: 100m, memory: 128Mi }
+            limits:   { cpu: 500m, memory: 256Mi }

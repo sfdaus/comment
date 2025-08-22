@@ -8,6 +8,7 @@ import (
 type CreateCommentReq struct {
 	ThreadID string `json:"thread_id"`
 	Content  string `json:"content"`
+	UserID   string
 }
 
 func (request CreateCommentReq) Validate() error {
@@ -15,6 +16,7 @@ func (request CreateCommentReq) Validate() error {
 		&request,
 		validation.Field(&request.ThreadID, validation.Required),
 		validation.Field(&request.Content, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
 	)
 }
 
@@ -22,24 +24,28 @@ func (request CreateCommentReq) Validate() error {
 type UpdateCommentReq struct {
 	ID      string `param:"id"`
 	Content string `json:"content"`
+	UserID  string
 }
 
 func (request UpdateCommentReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
 		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
 	)
 }
 
 // Delete request body
 type DeleteCommentReq struct {
-	ID string `param:"id"`
+	ID     string `param:"id"`
+	UserID string
 }
 
 func (request DeleteCommentReq) Validate() error {
 	return validation.ValidateStruct(
 		&request,
 		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
 	)
 }
 

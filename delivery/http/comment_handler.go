@@ -37,6 +37,8 @@ func (h *CommentHandler) Create(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
 
+	req.UserID = c.Request().Header.Get("x-user-id")
+
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
 		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
@@ -60,6 +62,8 @@ func (h *CommentHandler) Update(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
 
+	req.UserID = c.Request().Header.Get("x-user-id")
+
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)
 		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
@@ -81,6 +85,8 @@ func (h *CommentHandler) Delete(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
+
+	req.UserID = c.Request().Header.Get("x-user-id")
 
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)

@@ -38,10 +38,10 @@ func (u *CommentUsecase) Create(c context.Context, request *request.CreateCommen
 	CommentPayload := &entity.Comment{
 		ID:        CommentID,
 		ThreadID:  request.ThreadID,
-		UserID:    "TODO_user_id",
+		UserID:    request.UserID,
 		Content:   request.Content,
 		IsActive:  &t,
-		CreatedBy: "TODO_created_by",
+		CreatedBy: request.UserID,
 		CreatedAt: time.Now().Unix(),
 		UpdatedAt: time.Now().Unix(),
 	}
@@ -60,7 +60,7 @@ func (u *CommentUsecase) Update(c context.Context, request *request.UpdateCommen
 	// Update Payload
 	commentPayload := &entity.Comment{
 		ID:        request.ID,
-		UpdatedBy: "TODO_updated_by",
+		UpdatedBy: request.UserID,
 		UpdatedAt: time.Now().Unix(),
 	}
 

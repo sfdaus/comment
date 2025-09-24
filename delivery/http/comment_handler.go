@@ -123,10 +123,8 @@ func (h *CommentHandler) GetList(c echo.Context) error {
 	} else {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "Comments successfully retrieved",
-			"data": map[string]interface{}{
-				"data": res,
-				"meta": meta,
-			},
+			"data":    res,
+			"meta":    meta,
 		})
 	}
 }
@@ -149,9 +147,7 @@ func (h *CommentHandler) GetDetail(c echo.Context) error {
 	} else {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "Comment successfully retrieved",
-			"data": map[string]interface{}{
-				"data": res,
-			},
+			"data":    res,
 		})
 	}
 }

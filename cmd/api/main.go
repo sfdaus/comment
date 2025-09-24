@@ -16,6 +16,7 @@ import (
 	appMiddleware "prakarsa-app/delivery/middleware"
 	pgsqlRepository "prakarsa-app/repository/pgsql"
 	redisRepository "prakarsa-app/repository/redis"
+	s3Repository "prakarsa-app/repository/s3"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -39,16 +40,26 @@ func main() {
 	cacheInstance, err := datastore.NewCache(configApp.CacheURL)
 	utils.PanicIfNeeded(err)
 
+	s3Instance, pub, err := datastore.NewObjectStorageClient(datastore.S3Options{
+		Endpoint:     configApp.S3Endpoint,
+		AccessKey:    configApp.S3AccessKey,
+		SecretKey:    configApp.S3SecretKey,
+		UseSSL:       configApp.S3UseSSL,
+		PublicDomain: configApp.S3PublicDomain,
+	})
+	utils.PanicIfNeeded(err)
+
 	// Setup repository
 	redisRepo := redisRepository.NewRedisRepository(cacheInstance)
 	commentRepo := pgsqlRepository.NewPgsqlCommentRepository(dbInstance)
+	s3Repo := s3Repository.NewS3Repository(s3Instance, pub)
 
 	// Setup Service
 	jwtSvc := jwt.NewJWTService(configApp.JWTSecretKey)
 
 	// Setup usecase
 	ctxTimeout := time.Duration(configApp.ContextTimeout) * time.Second
-	commentUC := usecase.NewCommentUsecase(commentRepo, redisRepo, ctxTimeout)
+	commentUC := usecase.NewCommentUsecase(commentRepo, redisRepo, s3Repo, ctxTimeout)
 
 	// Setup app middleware
 	appMiddleware := appMiddleware.NewMiddleware(jwtSvc)

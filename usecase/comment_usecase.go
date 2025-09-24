@@ -2,7 +2,9 @@ package usecase
 
 import (
 	"context"
+	"prakarsa-app/config"
 	"prakarsa-app/entity"
+	"prakarsa-app/repository/s3"
 	"prakarsa-app/transport/response"
 	"time"
 
@@ -16,14 +18,16 @@ import (
 type CommentUsecase struct {
 	CommentRepo domain.CommentRepository
 	RedisRepo   redis.RedisRepository
+	s3Repo      s3.S3Repository
 	CtxTimeout  time.Duration
 }
 
 // NewCommentUsecase will create new an CommentUsecase object representation of ThreadUsecase interface
-func NewCommentUsecase(commentRepo domain.CommentRepository, redisRepo redis.RedisRepository, ctxTimeout time.Duration) *CommentUsecase {
+func NewCommentUsecase(commentRepo domain.CommentRepository, redisRepo redis.RedisRepository, s3Repo s3.S3Repository, ctxTimeout time.Duration) *CommentUsecase {
 	return &CommentUsecase{
 		CommentRepo: commentRepo,
 		RedisRepo:   redisRepo,
+		s3Repo:      s3Repo,
 		CtxTimeout:  ctxTimeout,
 	}
 }
@@ -91,6 +95,14 @@ func (u *CommentUsecase) GetList(c context.Context, request *request.GetListComm
 	request.IsActive = &t
 
 	res, meta, err = u.CommentRepo.GetList(ctx, request)
+
+	// Handle response
+	if len(res) > 0 {
+		for i, comment := range res {
+			res[i].Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, comment.Profile.Avatar, false, time.Duration(24*time.Hour))
+		}
+	}
+
 	return
 }
 
@@ -99,5 +111,9 @@ func (u *CommentUsecase) GetDetail(c context.Context, request *request.GetDetail
 	defer cancel()
 
 	res, err = u.CommentRepo.GetDetail(ctx, request)
+
+	// Handler response
+	res.Profile.Avatar, err = u.s3Repo.GetPresignedURL(c, config.LoadConfig().S3Bucket, res.Profile.Avatar, false, time.Duration(24*time.Hour))
+
 	return
 }

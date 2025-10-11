@@ -75,3 +75,20 @@ func (request GetDetailCommentReq) Validate() error {
 		validation.Field(&request.ID, validation.Required),
 	)
 }
+
+// CommentReportReq represent create request body
+type CommentReportReq struct {
+	ID          string `param:"id"`
+	ReasonID    string `json:"reason_id"`
+	Description string `json:"description"`
+	UserID      string
+}
+
+func (request CommentReportReq) Validate() error {
+	return validation.ValidateStruct(
+		&request,
+		validation.Field(&request.ID, validation.Required),
+		validation.Field(&request.ReasonID, validation.Required),
+		validation.Field(&request.UserID, validation.Required),
+	)
+}

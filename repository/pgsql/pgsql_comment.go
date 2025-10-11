@@ -3,10 +3,12 @@ package pgsql
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"prakarsa-app/entity"
 	"prakarsa-app/transport/request"
 	"prakarsa-app/transport/response"
+	"prakarsa-app/utils"
 	"strings"
 )
 
@@ -21,12 +23,63 @@ func NewPgsqlCommentRepository(db *sql.DB) *pgsqlCommentRepository {
 	}
 }
 
-func (r *pgsqlCommentRepository) Create(ctx context.Context, comment *entity.Comment) (err error) {
+func (r *pgsqlCommentRepository) Create(ctx context.Context, comment *entity.Comment, notificationOutbox *entity.NotificationOutboxInsert) (err error) {
+	// Mulai transaction
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return
+	}
+
+	// Pastikan rollback kalau ada error
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Insert comment
 	query := `INSERT INTO comments (id, thread_id, user_id, content, is_active, created_by, created_at, updated_at) 
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
-	if _, err = r.db.ExecContext(ctx, query, comment.ID, comment.ThreadID, comment.UserID, comment.Content, comment.IsActive,
+	if _, err = tx.ExecContext(ctx, query, comment.ID, comment.ThreadID, comment.UserID, comment.Content, comment.IsActive,
 		comment.CreatedBy, comment.CreatedAt, comment.UpdatedAt); err != nil {
 		return err
+	}
+
+	// Get thread owner
+	var threadOwnerID string
+	qThreadOwner := `SELECT user_id FROM threads WHERE id = $1 LIMIT 1`
+	if err = tx.QueryRowContext(ctx, qThreadOwner, comment.ThreadID).Scan(&threadOwnerID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return utils.NewNotFoundError("Thread not found")
+		}
+		return
+	}
+
+	// Create notification for thread owner
+	if threadOwnerID != comment.UserID {
+		notificationOutbox.UserID = threadOwnerID
+		notificationOutbox.IdempotencyKey = strings.Replace(notificationOutbox.IdempotencyKey, "[INIT_ID]", comment.UserID, 1)
+
+		qInitNotifOutbox := `INSERT INTO notification_outbox
+								(id, user_id, type, reference_type, reference_id, headers_json,
+								 title, message, action_url, priority, status, attempt_count,
+								 next_attempt_at, idempotency_key, created_at, updated_at)
+							VALUES
+								($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending',0,NOW(),$11,$12,$13)
+						`
+		if _, err = tx.ExecContext(ctx, qInitNotifOutbox,
+			notificationOutbox.ID, notificationOutbox.UserID, notificationOutbox.Type, notificationOutbox.ReferenceType,
+			notificationOutbox.ReferenceID, notificationOutbox.HeadersJSON, notificationOutbox.Title, notificationOutbox.Message,
+			notificationOutbox.ActionURL, notificationOutbox.Priority, notificationOutbox.IdempotencyKey, notificationOutbox.CreatedAt,
+			notificationOutbox.UpdatedAt,
+		); err != nil {
+			// idempotency_key UNIQUE akan trigger duplicate error kalau kejadian enqueue ganda
+			return
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return
 	}
 
 	return
@@ -72,14 +125,48 @@ func (r *pgsqlCommentRepository) Update(ctx context.Context, comment *entity.Com
 }
 
 func (r *pgsqlCommentRepository) Delete(ctx context.Context, comment *entity.Comment) (rowsAffected int64, err error) {
-	query := "DELETE FROM comments WHERE id = $1"
-	res, err := r.db.ExecContext(ctx, query, comment.ID)
+	// Mulai transaction
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return
+	}
+
+	// Pastikan rollback kalau ada error
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Check comment belong to thread owner or comment owner
+	var commentUserID, threadUserID string
+	query := `SELECT c.user_id comment_user_id, t.user_id thread_user_id
+				FROM comments c
+				JOIN threads t ON t.id = c.thread_id
+				WHERE c.id = $1
+				LIMIT 1`
+	err = tx.QueryRowContext(ctx, query, comment.ID).Scan(&commentUserID, &threadUserID)
+	if err != nil {
+		return
+	}
+
+	if comment.UserID != commentUserID && comment.UserID != threadUserID {
+		return 0, utils.NewUnauthorizedError("You have no access to delete this comment.")
+	}
+
+	// Delete comment
+	query = "DELETE FROM comments WHERE id = $1"
+	res, err := tx.ExecContext(ctx, query, comment.ID)
 	if err != nil {
 		return
 	}
 
 	rowsAffected, err = res.RowsAffected()
 	if err != nil {
+		return
+	}
+
+	if err = tx.Commit(); err != nil {
 		return
 	}
 
@@ -301,6 +388,17 @@ func (r *pgsqlCommentRepository) GetDetail(ctx context.Context, request *request
 
 	if err := row.Err(); err != nil {
 		return res, err
+	}
+
+	return
+}
+
+func (r *pgsqlCommentRepository) CommentReport(ctx context.Context, contentReport *entity.ContentReport) (err error) {
+	query := `INSERT INTO content_reports (id, reporter_id, comment_id, reason_id, status, is_active, created_by, 
+            	created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	if _, err = r.db.ExecContext(ctx, query, contentReport.ID, contentReport.ReporterID, contentReport.CommentID, contentReport.ReasonID,
+		contentReport.Status, contentReport.IsActive, contentReport.CreatedBy, contentReport.CreatedAt, contentReport.UpdatedAt); err != nil {
+		return err
 	}
 
 	return

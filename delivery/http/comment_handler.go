@@ -27,6 +27,7 @@ func NewCommentHandler(e *echo.Echo, middleware *middleware.Middleware, commentU
 	apiV1.DELETE("/comments/:id", handler.Delete)
 	apiV1.GET("/comments", handler.GetList)
 	apiV1.GET("/comments/:id", handler.GetDetail)
+	apiV1.POST("/comments/:id/report", handler.CommentReport)
 }
 
 func (h *CommentHandler) Create(c echo.Context) error {
@@ -148,6 +149,30 @@ func (h *CommentHandler) GetDetail(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "Comment successfully retrieved",
 			"data":    res,
+		})
+	}
+}
+
+func (h *CommentHandler) CommentReport(c echo.Context) error {
+	ctx := c.Request().Context()
+	var req request.CommentReportReq
+
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
+	}
+
+	req.UserID = c.Request().Header.Get("x-user-id")
+
+	if err := req.Validate(); err != nil {
+		errVal := err.(validation.Errors)
+		return c.JSON(http.StatusBadRequest, utils.NewInvalidInputError(errVal))
+	}
+
+	if err := h.CommentUC.CommentReport(ctx, &req); err != nil {
+		return c.JSON(utils.ParseHttpError(err))
+	} else {
+		return c.JSON(http.StatusCreated, map[string]interface{}{
+			"message": "Comment report successfully created",
 		})
 	}
 }

@@ -9,7 +9,7 @@ import (
 
 // // CommentRepository represent the Comment repository contract
 type CommentRepository interface {
-	Create(ctx context.Context, comment *entity.Comment) error
+	Create(ctx context.Context, comment *entity.Comment, notificationOutbox *entity.NotificationOutboxInsert) error
 	Update(ctx context.Context, comment *entity.Comment) error
 	Delete(ctx context.Context, comment *entity.Comment) (int64, error)
 	GetList(ctx context.Context, request *request.GetListCommentReq) ([]response.GetListCommentRes, response.MetaRes, error)

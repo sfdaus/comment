@@ -392,3 +392,14 @@ func (r *pgsqlCommentRepository) GetDetail(ctx context.Context, request *request
 
 	return
 }
+
+func (r *pgsqlCommentRepository) CommentReport(ctx context.Context, contentReport *entity.ContentReport) (err error) {
+	query := `INSERT INTO content_reports (id, reporter_id, comment_id, reason_id, status, is_active, created_by, 
+            	created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	if _, err = r.db.ExecContext(ctx, query, contentReport.ID, contentReport.ReporterID, contentReport.CommentID, contentReport.ReasonID,
+		contentReport.Status, contentReport.IsActive, contentReport.CreatedBy, contentReport.CreatedAt, contentReport.UpdatedAt); err != nil {
+		return err
+	}
+
+	return
+}

@@ -142,3 +142,25 @@ func (u *CommentUsecase) GetDetail(c context.Context, request *request.GetDetail
 
 	return
 }
+
+func (u *CommentUsecase) CommentReport(c context.Context, request *request.CommentReportReq) (err error) {
+	ctx, cancel := context.WithTimeout(c, u.CtxTimeout)
+	defer cancel()
+
+	contentReport := &entity.ContentReport{
+		ID:         uuid.NewString(),
+		ReporterID: request.UserID,
+		ThreadID:   "",
+		CommentID:  request.ID,
+		ReasonID:   request.ReasonID,
+		Status:     "OPEN",
+		IsActive:   true,
+		CreatedAt:  time.Now().Unix(),
+		CreatedBy:  request.UserID,
+		UpdatedAt:  time.Now().Unix(),
+	}
+
+	err = u.CommentRepo.CommentReport(ctx, contentReport)
+
+	return
+}

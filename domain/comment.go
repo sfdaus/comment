@@ -7,13 +7,14 @@ import (
 	"prakarsa-app/transport/response"
 )
 
-// // CommentRepository represent the Comment repository contract
+// CommentRepository represent the Comment repository contract
 type CommentRepository interface {
 	Create(ctx context.Context, comment *entity.Comment, notificationOutbox *entity.NotificationOutboxInsert) error
 	Update(ctx context.Context, comment *entity.Comment) error
 	Delete(ctx context.Context, comment *entity.Comment) (int64, error)
 	GetList(ctx context.Context, request *request.GetListCommentReq) ([]response.GetListCommentRes, response.MetaRes, error)
 	GetDetail(ctx context.Context, request *request.GetDetailCommentReq) (response.GetDetailCommentRes, error)
+	CommentReport(ctx context.Context, contentReport *entity.ContentReport) error
 }
 
 // CommentUsecase represent the Comment usecase contract
@@ -23,4 +24,5 @@ type CommentUsecase interface {
 	Delete(ctx context.Context, request *request.DeleteCommentReq) (int64, error)
 	GetList(ctx context.Context, request *request.GetListCommentReq) ([]response.GetListCommentRes, response.MetaRes, error)
 	GetDetail(ctx context.Context, request *request.GetDetailCommentReq) (response.GetDetailCommentRes, error)
+	CommentReport(ctx context.Context, request *request.CommentReportReq) error
 }

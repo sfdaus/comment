@@ -17,5 +17,5 @@ var NotificationIdempotencyKey = map[string]string{
 }
 
 var CommentNotificationTitle = map[string]string{
-	"COMMENT_NOTIFICATION_TITLE": `berkomentar di postinganmu`,
+	"COMMENT_NOTIFICATION_TITLE": `berkomentar pada postinganmu yang berjudul "[TITLE]"`,
 }

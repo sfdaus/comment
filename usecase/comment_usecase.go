@@ -57,6 +57,8 @@ func (u *CommentUsecase) Create(c context.Context, request *request.CreateCommen
 	headers := map[string]string{"x-user-id": request.UserID}
 	headersJSON, _ := json.Marshal(headers)
 
+	actionURL := config.LoadConfig().BaseURLPrakarsa + utils.CREATE_COMMENT_NOTIFICATION_ACTION_URL + request.ThreadID
+
 	initiatorNotificationOutbox := &entity.NotificationOutboxInsert{
 		ID:            uuid.NewString(),
 		Type:          utils.CREATE_COMMENT_NOTIFICATION_TYPE,
@@ -70,6 +72,7 @@ func (u *CommentUsecase) Create(c context.Context, request *request.CreateCommen
 			"%s:%s:%s", utils.NotificationIdempotencyKey[utils.CREATE_COMMENT_NOTIFICATION_TYPE],
 			CommentID, "[INIT_ID]",
 		),
+		ActionURL: &actionURL,
 		CreatedAt: time.Now().Unix(),
 		UpdatedAt: time.Now().Unix(),
 	}

@@ -9,17 +9,18 @@ import (
 )
 
 type Config struct {
-	DatabaseURL    string
-	CacheURL       string
-	LoggerLevel    string
-	ContextTimeout int
-	JWTSecretKey   string
-	S3Endpoint     string
-	S3AccessKey    string
-	S3SecretKey    string
-	S3UseSSL       bool
-	S3PublicDomain string
-	S3Bucket       string
+	DatabaseURL     string
+	CacheURL        string
+	LoggerLevel     string
+	ContextTimeout  int
+	JWTSecretKey    string
+	S3Endpoint      string
+	S3AccessKey     string
+	S3SecretKey     string
+	S3UseSSL        bool
+	S3PublicDomain  string
+	S3Bucket        string
+	BaseURLPrakarsa string
 }
 
 func LoadConfig() *Config {
@@ -27,17 +28,18 @@ func LoadConfig() *Config {
 	_ = godotenv.Load()
 
 	cfg := &Config{
-		DatabaseURL:    mustGetEnv("DATABASE_URL"),
-		CacheURL:       getEnv("CACHE_URL", ""),
-		LoggerLevel:    getEnv("LOGGER_LEVEL", "info"),
-		ContextTimeout: getEnvInt("CONTEXT_TIMEOUT", 10),
-		JWTSecretKey:   mustGetEnv("JWT_SECRET_KEY"),
-		S3Endpoint:     mustGetEnv("S3_ENDPOINT"),
-		S3AccessKey:    mustGetEnv("S3_ACCESS_KEY"),
-		S3SecretKey:    mustGetEnv("S3_SECRET_KEY"),
-		S3UseSSL:       getEnvBool("S3_USE_SSL", true),
-		S3PublicDomain: mustGetEnv("S3_PUBLIC_DOMAIN"),
-		S3Bucket:       mustGetEnv("S3_BUCKET"),
+		DatabaseURL:     mustGetEnv("DATABASE_URL"),
+		CacheURL:        getEnv("CACHE_URL", ""),
+		LoggerLevel:     getEnv("LOGGER_LEVEL", "info"),
+		ContextTimeout:  getEnvInt("CONTEXT_TIMEOUT", 10),
+		JWTSecretKey:    mustGetEnv("JWT_SECRET_KEY"),
+		S3Endpoint:      mustGetEnv("S3_ENDPOINT"),
+		S3AccessKey:     mustGetEnv("S3_ACCESS_KEY"),
+		S3SecretKey:     mustGetEnv("S3_SECRET_KEY"),
+		S3UseSSL:        getEnvBool("S3_USE_SSL", true),
+		S3PublicDomain:  mustGetEnv("S3_PUBLIC_DOMAIN"),
+		S3Bucket:        mustGetEnv("S3_BUCKET"),
+		BaseURLPrakarsa: mustGetEnv("BASE_URL_PRAKARSA"),
 	}
 	return cfg
 }

@@ -6,6 +6,9 @@ const (
 	// Notification Comment Constant
 	CREATE_COMMENT_NOTIFICATION_TYPE    = "COMMENT_NOTIFICATION"
 	COMMENT_NOTIFICATION_REFERENCE_TYPE = "THREAD"
+
+	// Action URL Notification Constant
+	CREATE_COMMENT_NOTIFICATION_ACTION_URL = "/thread/"
 )
 
 var CommentNotificationPriority = map[string]string{

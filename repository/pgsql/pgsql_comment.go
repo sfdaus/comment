@@ -46,9 +46,9 @@ func (r *pgsqlCommentRepository) Create(ctx context.Context, comment *entity.Com
 	}
 
 	// Get thread owner
-	var threadOwnerID string
-	qThreadOwner := `SELECT user_id FROM threads WHERE id = $1 LIMIT 1`
-	if err = tx.QueryRowContext(ctx, qThreadOwner, comment.ThreadID).Scan(&threadOwnerID); err != nil {
+	var threadOwnerID, threadTitle string
+	qThreadOwner := `SELECT user_id,title FROM threads WHERE id = $1 LIMIT 1`
+	if err = tx.QueryRowContext(ctx, qThreadOwner, comment.ThreadID).Scan(&threadOwnerID, &threadTitle); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return utils.NewNotFoundError("Thread not found")
 		}
@@ -59,6 +59,8 @@ func (r *pgsqlCommentRepository) Create(ctx context.Context, comment *entity.Com
 	if threadOwnerID != comment.UserID {
 		notificationOutbox.UserID = threadOwnerID
 		notificationOutbox.IdempotencyKey = strings.Replace(notificationOutbox.IdempotencyKey, "[INIT_ID]", comment.UserID, 1)
+
+		notificationOutbox.Title = strings.Replace(notificationOutbox.Title, "[TITLE]", threadTitle, 1)
 
 		qInitNotifOutbox := `INSERT INTO notification_outbox
 								(id, user_id, type, reference_type, reference_id, headers_json,

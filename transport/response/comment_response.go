@@ -12,6 +12,7 @@ type GetListCommentRes struct {
 	ThreadID  string         `json:"thread_id"`
 	Content   string         `json:"content"`
 	Profile   entity.Profile `json:"profile"`
+	IsOwner   bool           `json:"is_owner"`
 	IsActive  bool           `json:"is_active"`
 	CreatedAt int64          `json:"created_at"`
 	UpdatedAt int64          `json:"updated_at"`

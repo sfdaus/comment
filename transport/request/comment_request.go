@@ -55,6 +55,7 @@ type GetListCommentReq struct {
 	IsActive *bool  `query:"is_active"`
 	PerPage  int64  `query:"per_page"`
 	Page     int64  `query:"page"`
+	UserID   string
 }
 
 func (request GetListCommentReq) Validate() error {

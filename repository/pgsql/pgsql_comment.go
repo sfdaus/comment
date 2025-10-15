@@ -287,7 +287,9 @@ func (r *pgsqlCommentRepository) GetList(ctx context.Context, request *request.G
 			-- institution
 			i.name, i.alias, i.type,
 			-- users
-			u.public_id
+			u.public_id,
+
+			(c.user_id = '%s') AS is_owner
 		FROM comments c
 		JOIN profiles p ON p.user_id = c.user_id
 		JOIN users u ON u.id = c.user_id
@@ -295,7 +297,7 @@ func (r *pgsqlCommentRepository) GetList(ctx context.Context, request *request.G
 		%s
 		ORDER BY c.created_at ASC
 		LIMIT $%d OFFSET $%d
-	`, whereSQL, limitPos, offsetPos)
+	`, request.UserID, whereSQL, limitPos, offsetPos)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -321,6 +323,8 @@ func (r *pgsqlCommentRepository) GetList(ctx context.Context, request *request.G
 
 			// users
 			publicID string
+
+			isOwner bool
 		)
 
 		if err := rows.Scan(
@@ -328,7 +332,7 @@ func (r *pgsqlCommentRepository) GetList(ctx context.Context, request *request.G
 			&cIsActive, &cCreatedAt, &cUpdatedAt,
 			&pName, &pAlias, &pAvatar,
 			&iName, &iAlias, &iType,
-			&publicID,
+			&publicID, &isOwner,
 		); err != nil {
 			return nil, meta, err
 		}
@@ -357,6 +361,7 @@ func (r *pgsqlCommentRepository) GetList(ctx context.Context, request *request.G
 					Type:  iType.String,
 				},
 			},
+			IsOwner: isOwner,
 		}
 
 		res = append(res, item)

@@ -242,9 +242,12 @@ func (r *pgsqlCommentRepository) GetList(ctx context.Context, request *request.G
 			-- profile
 			p.name, p.name_alias, p.avatar,
 			-- institution
-			i.name, i.alias, i.type
+			i.name, i.alias, i.type,
+			-- users
+			u.public_id
 		FROM comments c
 		JOIN profiles p ON p.user_id = c.user_id
+		JOIN users u ON u.id = c.user_id
 		LEFT JOIN institutions i ON i.id = p.institution_id
 		%s
 		ORDER BY c.created_at ASC
@@ -272,6 +275,9 @@ func (r *pgsqlCommentRepository) GetList(ctx context.Context, request *request.G
 
 			// institution
 			iName, iAlias, iType sql.NullString
+
+			// users
+			publicID string
 		)
 
 		if err := rows.Scan(
@@ -279,6 +285,7 @@ func (r *pgsqlCommentRepository) GetList(ctx context.Context, request *request.G
 			&cIsActive, &cCreatedAt, &cUpdatedAt,
 			&pName, &pAlias, &pAvatar,
 			&iName, &iAlias, &iType,
+			&publicID,
 		); err != nil {
 			return nil, meta, err
 		}
@@ -297,6 +304,7 @@ func (r *pgsqlCommentRepository) GetList(ctx context.Context, request *request.G
 			CreatedAt: cCreatedAt,
 			UpdatedAt: cUpdatedAt,
 			Profile: entity.Profile{
+				PublicID:  publicID,
 				Name:      pName,
 				NameAlias: pAlias.String,
 				Avatar:    pAvatar.String,

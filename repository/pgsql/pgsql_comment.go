@@ -10,6 +10,7 @@ import (
 	"prakarsa-app/transport/response"
 	"prakarsa-app/utils"
 	"strings"
+	"time"
 )
 
 type pgsqlCommentRepository struct {
@@ -156,16 +157,54 @@ func (r *pgsqlCommentRepository) Delete(ctx context.Context, comment *entity.Com
 		return 0, utils.NewUnauthorizedError("You have no access to delete this comment.")
 	}
 
-	// Delete comment
-	query = "DELETE FROM comments WHERE id = $1"
-	res, err := tx.ExecContext(ctx, query, comment.ID)
-	if err != nil {
-		return
-	}
+	if comment.UserID == threadUserID {
+		// Build dynamic SET clauses from Comment struct
+		sets := []string{}
+		args := []interface{}{}
+		idx := 1
 
-	rowsAffected, err = res.RowsAffected()
-	if err != nil {
-		return
+		sets = append(sets, fmt.Sprintf("is_active = $%d", idx))
+		args = append(args, false)
+		idx++
+
+		// Update stamp
+		sets = append(sets, fmt.Sprintf("updated_at = $%d", idx))
+		args = append(args, time.Now().Unix())
+		idx++
+
+		sets = append(sets, fmt.Sprintf("updated_by = $%d", idx))
+		args = append(args, comment.UserID)
+		idx++
+
+		// tambahkan WHERE id = $idx
+		args = append(args, comment.ID)
+		query = fmt.Sprintf(
+			"UPDATE comments SET %s WHERE id = $%d",
+			strings.Join(sets, ", "),
+			idx,
+		)
+
+		res, err := tx.ExecContext(ctx, query, args...)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected, err = res.RowsAffected()
+		if err != nil {
+			return rowsAffected, err
+		}
+	} else {
+		// Delete comment
+		query = "DELETE FROM comments WHERE id = $1"
+		res, err := tx.ExecContext(ctx, query, comment.ID)
+		if err != nil {
+			return rowsAffected, err
+		}
+
+		rowsAffected, err = res.RowsAffected()
+		if err != nil {
+			return rowsAffected, err
+		}
 	}
 
 	if err = tx.Commit(); err != nil {
@@ -190,6 +229,10 @@ func (r *pgsqlCommentRepository) GetList(ctx context.Context, request *request.G
 	if request.IsActive != nil {
 		wheres = append(wheres, fmt.Sprintf("c.is_active = $%d", idx))
 		args = append(args, request.IsActive)
+		idx++
+	} else {
+		wheres = append(wheres, fmt.Sprintf("c.is_active = $%d", idx))
+		args = append(args, true)
 		idx++
 	}
 

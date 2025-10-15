@@ -113,6 +113,8 @@ func (h *CommentHandler) GetList(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, utils.NewUnprocessableEntityError(err.Error()))
 	}
+	
+	req.UserID = c.Request().Header.Get("x-user-id")
 
 	if err := req.Validate(); err != nil {
 		errVal := err.(validation.Errors)

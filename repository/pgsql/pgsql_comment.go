@@ -247,7 +247,7 @@ func (r *pgsqlCommentRepository) GetList(ctx context.Context, request *request.G
 		JOIN profiles p ON p.user_id = c.user_id
 		LEFT JOIN institutions i ON i.id = p.institution_id
 		%s
-		ORDER BY c.created_at DESC
+		ORDER BY c.created_at ASC
 		LIMIT $%d OFFSET $%d
 	`, whereSQL, limitPos, offsetPos)
 
